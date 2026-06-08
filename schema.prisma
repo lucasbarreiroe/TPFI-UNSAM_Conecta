@@ -1,0 +1,191 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// ENUM DEFINITIONS
+// ============================================================================
+
+enum UserRole {
+  USER
+  ORGANIZER
+  EXTERNAL_PREMIUM
+  ADMIN
+}
+
+enum NotificationChannel {
+  EMAIL
+  PHONE
+  BOTH
+}
+
+enum EventCategory {
+  ECyT              // Eventos Científicos y Tecnológicos
+  EPyG              // Eventos Políticos y de Gestión
+  EH                // Eventos Humanísticos
+  SPORTS            // Eventos Deportivos
+  CULTURAL          // Eventos Culturales
+  OTHER
+}
+
+enum RegistrationStatus {
+  CONFIRMED
+  CANCELLED
+  PENDING
+  WAITLISTED
+}
+
+enum EventStatus {
+  DRAFT
+  PUBLISHED
+  ONGOING
+  COMPLETED
+  CANCELLED
+}
+
+// ============================================================================
+// CORE ENTITIES
+// ============================================================================
+
+model User {
+  id                          String    @id @default(cuid())
+  email                       String    @unique
+  passwordHash                String
+  role                        UserRole  @default(USER)
+  fullName                    String
+  dni                         String?
+  phone                       String?
+  interests                   String[]  @default([])
+  preferredNotificationChannel NotificationChannel @default(EMAIL)
+  createdAt                   DateTime  @default(now())
+  updatedAt                   DateTime  @updatedAt
+  deletedAt                   DateTime?
+
+  // Relations
+  registrations               Registration[]
+  reviews                     Review[]
+  eventsOrganized             Event[]    @relation("organizer")
+  notifications               Notification[]
+
+  @@index([email])
+  @@index([role])
+  @@index([createdAt])
+}
+
+model Event {
+  id                String         @id @default(cuid())
+  title             String
+  description       String
+  organizerId       String
+  category          EventCategory
+  location          String
+  startTime         DateTime
+  endTime           DateTime
+  capacity          Int
+  currentEnrollment Int            @default(0)
+  status            EventStatus    @default(DRAFT)
+  tags              String[]       @default([])
+  imageUrl          String?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  deletedAt         DateTime?
+
+  // Relations
+  organizer         User           @relation("organizer", fields: [organizerId], references: [id], onDelete: Cascade)
+  registrations     Registration[]
+  reviews           Review[]
+  notifications     Notification[]
+
+  @@index([organizerId])
+  @@index([startTime])
+  @@index([category])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model Registration {
+  id        String               @id @default(cuid())
+  userId    String
+  eventId   String
+  status    RegistrationStatus   @default(CONFIRMED)
+  createdAt DateTime             @default(now())
+  updatedAt DateTime             @updatedAt
+  cancelledAt DateTime?
+
+  // Relations
+  user      User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  event     Event                @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  review    Review?
+
+  @@unique([userId, eventId])
+  @@index([userId])
+  @@index([eventId])
+  @@index([status])
+}
+
+model Review {
+  id              String   @id @default(cuid())
+  registrationId  String   @unique
+  userId          String
+  eventId         String
+  rating          Int      // 1 to 5
+  comment         String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  registration    Registration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  event           Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([eventId])
+  @@index([createdAt])
+}
+
+model Notification {
+  id          String   @id @default(cuid())
+  userId      String
+  eventId     String
+  type        String   // "24h_reminder", "1h_reminder", "registration_confirmed"
+  channel     NotificationChannel
+  content     String
+  sent        Boolean  @default(false)
+  sentAt      DateTime?
+  createdAt   DateTime @default(now())
+
+  // Relations
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([eventId])
+  @@index([sent])
+  @@index([createdAt])
+}
+
+// ============================================================================
+// AUDIT LOG (Optional but Recommended for Enterprise Compliance)
+// ============================================================================
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  action    String   // e.g., "USER_REGISTERED", "EVENT_CREATED", "REGISTRATION_CANCELLED"
+  entity    String   // e.g., "User", "Event", "Registration"
+  entityId  String
+  changes   Json?    // Store before/after state as JSON
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+}
