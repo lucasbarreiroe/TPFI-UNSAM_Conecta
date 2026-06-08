@@ -9,9 +9,11 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
-
+    
 def get_password_hash(password: str) -> str:
-    return pwd_context.hash(password)
+    # Bcrypt solo soporta los primeros 72 bytes. 
+    # Truncar evita el ValueError que vimos en los logs.
+    return pwd_context.hash(password[:72])
 
 def create_access_token(subject: Union[str, Any], expires_delta: timedelta = None) -> str:
     if expires_delta:
