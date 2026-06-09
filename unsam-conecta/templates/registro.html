@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card shadow-sm">
+            <div class="card-body p-4">
+                <h3 class="text-center text-primary mb-4">Registro de Usuario</h3>
+                
+                <div id="alert-box" class="alert d-none"></div>
+
+                <form id="registroForm">
+                    <div class="mb-3">
+                        <label class="form-label">Nombre Completo</label>
+                        <input type="text" id="nombre" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Correo Institucional</label>
+                        <input type="email" id="email" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">DNI</label>
+                        <input type="text" id="dni" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Contraseña</label>
+                        <input type="password" id="password" class="form-control" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">Crear Cuenta</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById("registroForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const alertBox = document.getElementById("alert-box");
+    
+    const payload = {
+        full_name: document.getElementById("nombre").value,
+        email: document.getElementById("email").value,
+        dni: document.getElementById("dni").value,
+        password: document.getElementById("password").value
+    };
+
+    try {
+        const response = await fetch("/api/v1/auth/register", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        });
+
+        if (response.ok) {
+            alertBox.className = "alert alert-success";
+            alertBox.innerText = "¡Registro exitoso! Redirigiendo al login...";
+            setTimeout(() => window.location.href = "/login", 1500);
+        } else {
+            const error = await response.json();
+            alertBox.className = "alert alert-danger";
+            alertBox.innerText = error.detail || "Error en el registro";
+        }
+    } catch (error) {
+        console.error("Error:", error);
+    }
+});
+</script>
+{% endblock %}

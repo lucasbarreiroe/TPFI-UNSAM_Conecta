@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="text-primary">Eventos Disponibles</h2>
+</div>
+
+<div id="alert-box" class="alert d-none"></div>
+<div class="row" id="events-container">
+    <div class="text-center"><div class="spinner-border text-primary" role="status"></div></div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", async () => {
+    const container = document.getElementById("events-container");
+    const token = localStorage.getItem("token");
+
+    try {
+        // Obtenemos los eventos de tu API
+        const response = await fetch("/api/v1/events/");
+        const events = await response.json();
+        
+        container.innerHTML = ""; // Limpiar spinner
+
+        if (events.length === 0) {
+            container.innerHTML = "<p class='text-muted'>No hay eventos programados en este momento.</p>";
+            return;
+        }
+
+        // Dibujar cada evento en pantalla
+        events.forEach(event => {
+            // Formatear fecha
+            const fecha = new Date(event.start_time).toLocaleString("es-AR", {dateStyle: "medium", timeStyle: "short"});
+            
+            // Botón dinámico según si estás logueado o no
+            let btnInscribir = token 
+                ? `<button class="btn btn-success w-100 mt-3" onclick="inscribirse(${event.id})">Inscribirse</button>`
+                : `<a href="/login" class="btn btn-outline-primary w-100 mt-3">Inicia sesión para anotarte</a>`;
+
+            const card = `
+                <div class="col-md-4 mb-4">
+                    <div class="card h-100 shadow-sm">
+                        <div class="card-body">
+                            <span class="badge bg-secondary mb-2">${event.category}</span>
+                            <h5 class="card-title text-primary">${event.title}</h5>
+                            <p class="card-text text-muted small">${event.description.substring(0, 100)}...</p>
+                            <hr>
+                            <p class="mb-1"><strong>📍 Lugar:</strong> ${event.location}</p>
+                            <p class="mb-1"><strong>📅 Fecha:</strong> ${fecha}</p>
+                            <p class="mb-1"><strong>👥 Cupos:</strong> ${event.current_enrollment} / ${event.capacity}</p>
+                            ${btnInscribir}
+                        </div>
+                    </div>
+                </div>
+            `;
+            container.innerHTML += card;
+        });
+
+    } catch (error) {
+        container.innerHTML = "<p class='text-danger'>Error al cargar los eventos.</p>";
+    }
+});
+
+// Función para inscribirse enviando el Token en la cabecera
+async function inscribirse(eventId) {
+    const token = localStorage.getItem("token");
+    const alertBox = document.getElementById("alert-box");
+
+    try {
+        const response = await fetch(`/api/v1/events/${eventId}/register`, {
+            method: "POST",
+            headers: {
+                "Authorization": `Bearer ${token}`
+            }
+        });
+
+        if (response.ok) {
+            alertBox.className = "alert alert-success";
+            alertBox.innerText = "¡Te has inscrito con éxito!";
+            setTimeout(() => window.location.reload(), 1500); // Recargar para actualizar cupos
+        } else {
+            const error = await response.json();
+            alertBox.className = "alert alert-danger";
+            alertBox.innerText = error.detail || "No se pudo completar la inscripción.";
+        }
+    } catch (error) {
+        console.error("Error:", error);
+    }
+}
+</script>
+{% endblock %}
