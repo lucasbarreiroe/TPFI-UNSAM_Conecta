@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card shadow-sm">
+            <div class="card-body p-4">
+                <h3 class="text-center text-primary mb-4">Panel de Organización: Crear Evento</h3>
+                
+                <div id="alert-box" class="alert d-none"></div>
+
+                <form id="eventoForm">
+                    <div class="mb-3">
+                        <label class="form-label">Título del Evento</label>
+                        <input type="text" id="title" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Descripción</label>
+                        <textarea id="description" class="form-control" rows="3" required></textarea>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Unidad Académica / Categoría</label>
+                            <input type="text" id="category" class="form-control" placeholder="Ej: ECyT, EEyN" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Ubicación / Aula</label>
+                            <input type="text" id="location" class="form-control" required>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Fecha y Hora de Inicio</label>
+                            <input type="datetime-local" id="start_time" class="form-control" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Fecha y Hora de Finalización</label>
+                            <input type="datetime-local" id="end_time" class="form-control" required>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Capacidad Máxima (Cupos)</label>
+                        <input type="number" id="capacity" class="form-control" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">Publicar Evento de la Universidad</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById("eventoForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const alertBox = document.getElementById("alert-box");
+    const token = localStorage.getItem("token");
+
+    if (!token) {
+        alertBox.className = "alert alert-danger";
+        alertBox.innerText = "Debes iniciar sesión para realizar esta acción.";
+        return;
+    }
+
+    const payload = {
+        title: document.getElementById("title").value,
+        description: document.getElementById("description").value,
+        category: document.getElementById("category").value,
+        location: document.getElementById("location").value,
+        start_time: document.getElementById("start_time").value + ":00Z",
+        end_time: document.getElementById("end_time").value + ":00Z",
+        capacity: parseInt(document.getElementById("capacity").value),
+        tags: []
+    };
+
+    try {
+        const response = await fetch("/api/v1/events/", {
+            method: "POST",
+            headers: { 
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${token}`
+            },
+            body: JSON.stringify(payload)
+        });
+
+        if (response.ok) {
+            alertBox.className = "alert alert-success";
+            alertBox.innerText = "¡Evento publicado con éxito!";
+            setTimeout(() => window.location.href = "/eventos", 1500);
+        } else {
+            const error = await response.json();
+            alertBox.className = "alert alert-danger";
+            alertBox.innerText = error.detail || "Error al crear el evento (Verifica que tu usuario tenga rol ORGANIZER).";
+        }
+    } catch (error) {
+        console.error("Error:", error);
+    }
+});
+</script>
+{% endblock %}

@@ -15,23 +15,19 @@ document.addEventListener("DOMContentLoaded", async () => {
     const token = localStorage.getItem("token");
 
     try {
-        // Obtenemos los eventos de tu API
         const response = await fetch("/api/v1/events/");
         const events = await response.json();
         
-        container.innerHTML = ""; // Limpiar spinner
+        container.innerHTML = "";
 
         if (events.length === 0) {
             container.innerHTML = "<p class='text-muted'>No hay eventos programados en este momento.</p>";
             return;
         }
 
-        // Dibujar cada evento en pantalla
         events.forEach(event => {
-            // Formatear fecha
             const fecha = new Date(event.start_time).toLocaleString("es-AR", {dateStyle: "medium", timeStyle: "short"});
             
-            // Botón dinámico según si estás logueado o no
             let btnInscribir = token 
                 ? `<button class="btn btn-success w-100 mt-3" onclick="inscribirse(${event.id})">Inscribirse</button>`
                 : `<a href="/login" class="btn btn-outline-primary w-100 mt-3">Inicia sesión para anotarte</a>`;
@@ -60,7 +56,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 });
 
-// Función para inscribirse enviando el Token en la cabecera
 async function inscribirse(eventId) {
     const token = localStorage.getItem("token");
     const alertBox = document.getElementById("alert-box");
@@ -76,7 +71,7 @@ async function inscribirse(eventId) {
         if (response.ok) {
             alertBox.className = "alert alert-success";
             alertBox.innerText = "¡Te has inscrito con éxito!";
-            setTimeout(() => window.location.reload(), 1500); // Recargar para actualizar cupos
+            setTimeout(() => window.location.reload(), 1500);
         } else {
             const error = await response.json();
             alertBox.className = "alert alert-danger";

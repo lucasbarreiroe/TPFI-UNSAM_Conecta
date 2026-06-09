@@ -29,7 +29,6 @@ document.getElementById("loginForm").addEventListener("submit", async (e) => {
     e.preventDefault();
     const alertBox = document.getElementById("alert-box");
     
-    // OAuth2 en FastAPI requiere un Formulario URL-Encoded
     const formData = new URLSearchParams();
     formData.append("username", document.getElementById("email").value);
     formData.append("password", document.getElementById("password").value);
@@ -43,7 +42,6 @@ document.getElementById("loginForm").addEventListener("submit", async (e) => {
 
         if (response.ok) {
             const data = await response.json();
-            // Guardamos el token en la memoria del navegador
             localStorage.setItem("token", data.access_token);
             window.location.href = "/eventos";
         } else {
