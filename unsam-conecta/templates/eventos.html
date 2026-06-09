@@ -15,22 +15,50 @@ document.addEventListener("DOMContentLoaded", async () => {
     const token = localStorage.getItem("token");
 
     try {
-        const response = await fetch("/api/v1/events/");
-        const events = await response.json();
+        // 1. Obtenemos TODOS los eventos
+        const responseEvents = await fetch("/api/v1/events/");
+        const events = await responseEvents.json();
         
-        container.innerHTML = "";
+        // 2. Obtenemos las inscripciones del usuario actual (si está logueado)
+        let misInscripciones = new Set();
+        if (token) {
+            const responseRegs = await fetch("/api/v1/users/me/registrations", {
+                headers: { "Authorization": `Bearer ${token}` }
+            });
+            if (responseRegs.ok) {
+                const regs = await responseRegs.json();
+                // Guardamos los IDs de los eventos donde el usuario está CONFIRMADO
+                regs.forEach(reg => {
+                    if (reg.status === "CONFIRMED") {
+                        misInscripciones.add(reg.event_id);
+                    }
+                });
+            }
+        }
+
+        container.innerHTML = ""; // Limpiar spinner
 
         if (events.length === 0) {
             container.innerHTML = "<p class='text-muted'>No hay eventos programados en este momento.</p>";
             return;
         }
 
+        // 3. Dibujar cada evento evaluando si ya estamos inscriptos
         events.forEach(event => {
             const fecha = new Date(event.start_time).toLocaleString("es-AR", {dateStyle: "medium", timeStyle: "short"});
             
-            let btnInscribir = token 
-                ? `<button class="btn btn-success w-100 mt-3" onclick="inscribirse(${event.id})">Inscribirse</button>`
-                : `<a href="/login" class="btn btn-outline-primary w-100 mt-3">Inicia sesión para anotarte</a>`;
+            // Lógica inteligente para el botón
+            let btnAccion = "";
+            if (!token) {
+                // No está logueado
+                btnAccion = `<a href="/login" class="btn btn-outline-primary w-100 mt-3">Inicia sesión para anotarte</a>`;
+            } else if (misInscripciones.has(event.id)) {
+                // Ya está inscripto
+                btnAccion = `<button class="btn btn-danger w-100 mt-3" onclick="desinscribirse(${event.id})">Desinscribirse</button>`;
+            } else {
+                // Logueado pero no inscripto
+                btnAccion = `<button class="btn btn-success w-100 mt-3" onclick="inscribirse(${event.id})">Inscribirse</button>`;
+            }
 
             const card = `
                 <div class="col-md-4 mb-4">
@@ -43,7 +71,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                             <p class="mb-1"><strong>📍 Lugar:</strong> ${event.location}</p>
                             <p class="mb-1"><strong>📅 Fecha:</strong> ${fecha}</p>
                             <p class="mb-1"><strong>👥 Cupos:</strong> ${event.current_enrollment} / ${event.capacity}</p>
-                            ${btnInscribir}
+                            ${btnAccion}
                         </div>
                     </div>
                 </div>
@@ -53,9 +81,11 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     } catch (error) {
         container.innerHTML = "<p class='text-danger'>Error al cargar los eventos.</p>";
+        console.error(error);
     }
 });
 
+// Función para inscribirse
 async function inscribirse(eventId) {
     const token = localStorage.getItem("token");
     const alertBox = document.getElementById("alert-box");
@@ -63,19 +93,45 @@ async function inscribirse(eventId) {
     try {
         const response = await fetch(`/api/v1/events/${eventId}/register`, {
             method: "POST",
-            headers: {
-                "Authorization": `Bearer ${token}`
-            }
+            headers: { "Authorization": `Bearer ${token}` }
         });
 
         if (response.ok) {
             alertBox.className = "alert alert-success";
-            alertBox.innerText = "¡Te has inscrito con éxito!";
-            setTimeout(() => window.location.reload(), 1500);
+            alertBox.innerText = "¡Te has inscripto con éxito!";
+            setTimeout(() => window.location.reload(), 1500); 
         } else {
             const error = await response.json();
             alertBox.className = "alert alert-danger";
             alertBox.innerText = error.detail || "No se pudo completar la inscripción.";
+        }
+    } catch (error) {
+        console.error("Error:", error);
+    }
+}
+
+// Función para cancelar la inscripción
+async function desinscribirse(eventId) {
+    const token = localStorage.getItem("token");
+    const alertBox = document.getElementById("alert-box");
+
+    // Opcional: Pequeña confirmación visual antes de borrar
+    if(!confirm("¿Estás seguro de que quieres cancelar tu inscripción a este evento?")) return;
+
+    try {
+        const response = await fetch(`/api/v1/events/${eventId}/cancel`, {
+            method: "POST",
+            headers: { "Authorization": `Bearer ${token}` }
+        });
+
+        if (response.ok) {
+            alertBox.className = "alert alert-info";
+            alertBox.innerText = "Tu inscripción ha sido cancelada. Liberaste el cupo.";
+            setTimeout(() => window.location.reload(), 1500); 
+        } else {
+            const error = await response.json();
+            alertBox.className = "alert alert-danger";
+            alertBox.innerText = error.detail || "No se pudo cancelar la inscripción.";
         }
     } catch (error) {
         console.error("Error:", error);

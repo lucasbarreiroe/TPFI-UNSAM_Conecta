@@ -19,7 +19,7 @@ class Token(BaseModel):
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 async def register(user_in: UserCreate, db: AsyncSession = Depends(get_db)):
-    # Check if user email already exists
+    # 1. Comprobar si el usuario ya existe
     result = await db.execute(select(User).where(User.email == user_in.email))
     if result.scalar_one_or_none():
         raise HTTPException(
@@ -27,7 +27,7 @@ async def register(user_in: UserCreate, db: AsyncSession = Depends(get_db)):
             detail="The user with this email already exists in the system",
         )
     
-    # Create new user instance
+    # 2. Crear la instancia (Esta línea debe estar alineada a la izquierda, fuera del 'if')
     db_user = User(
         email=user_in.email,
         password_hash=get_password_hash(user_in.password),
@@ -35,9 +35,11 @@ async def register(user_in: UserCreate, db: AsyncSession = Depends(get_db)):
         dni=user_in.dni,
         phone=user_in.phone,
         interests=user_in.interests,
-        preferred_notification_channel=user_in.preferred_notification_channel
+        preferred_notification_channel=user_in.preferred_notification_channel,
+        role=user_in.role
     )
     
+    # 3. Guardar en la base de datos
     db.add(db_user)
     await db.commit()
     await db.refresh(db_user)
@@ -47,7 +49,6 @@ async def register(user_in: UserCreate, db: AsyncSession = Depends(get_db)):
 async def login(
     db: AsyncSession = Depends(get_db), form_data: OAuth2PasswordRequestForm = Depends()
 ):
-    # form_data.username represents the email in OAuth2
     result = await db.execute(select(User).where(User.email == form_data.username))
     user = result.scalar_one_or_none()
     
@@ -58,7 +59,6 @@ async def login(
             headers={"WWW-Authenticate": "Bearer"},
         )
     
-    # Generate JWT token
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
         subject=user.id, expires_delta=access_token_expires
