@@ -1,140 +1,292 @@
 {% extends "base.html" %}
 {% block content %}
+<script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js'></script>
+
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h2 class="text-primary">Eventos Disponibles</h2>
+    <h2 class="text-primary" id="page-title">Cargando eventos...</h2>
 </div>
 
 <div id="alert-box" class="alert d-none"></div>
-<div class="row" id="events-container">
-    <div class="text-center"><div class="spinner-border text-primary" role="status"></div></div>
+
+<div class="text-center" id="loading-spinner">
+    <div class="spinner-border text-primary" role="status"></div>
+</div>
+
+<div class="row d-none" id="public-view"></div>
+
+<div id="student-view" class="d-none">
+    <div class="card shadow-sm">
+        <div class="card-body p-4">
+            <div id="calendar"></div>
+        </div>
+    </div>
+</div>
+
+<div id="organizer-view" class="d-none">
+    <div class="d-flex justify-content-end mb-3">
+        <a href="/crear-evento" class="btn btn-success">+ Publicar Nuevo Evento</a>
+    </div>
+    <div class="card shadow-sm">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Título</th>
+                        <th>Categoría</th>
+                        <th>Fecha</th>
+                        <th>Cupos Ocupados</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="organizer-table-body">
+                    </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="eventModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title" id="modalTitle">Detalles del Evento</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <span class="badge bg-secondary mb-2" id="modalCategory"></span>
+        <p class="text-muted" id="modalDescription"></p>
+        <hr>
+        <p class="mb-1"><strong>📍 Lugar:</strong> <span id="modalLocation"></span></p>
+        <p class="mb-1"><strong>📅 Inicio:</strong> <span id="modalStart"></span></p>
+        <p class="mb-1"><strong>👥 Cupos:</strong> <span id="modalCapacity"></span></p>
+      </div>
+      <div class="modal-footer" id="modalFooter">
+        </div>
+    </div>
+  </div>
 </div>
 
 <script>
+let currentUser = null;
+let misInscripciones = new Set();
+let allEvents = [];
+
 document.addEventListener("DOMContentLoaded", async () => {
-    const container = document.getElementById("events-container");
     const token = localStorage.getItem("token");
 
     try {
-        // 1. Obtenemos TODOS los eventos
-        const responseEvents = await fetch("/api/v1/events/");
-        const events = await responseEvents.json();
-        
-        // 2. Obtenemos las inscripciones del usuario actual (si está logueado)
-        let misInscripciones = new Set();
+        // 1. Averiguar quién está viendo la pantalla
         if (token) {
-            const responseRegs = await fetch("/api/v1/users/me/registrations", {
+            const meRes = await fetch("/api/v1/auth/me", {
                 headers: { "Authorization": `Bearer ${token}` }
             });
-            if (responseRegs.ok) {
-                const regs = await responseRegs.json();
-                // Guardamos los IDs de los eventos donde el usuario está CONFIRMADO
-                regs.forEach(reg => {
-                    if (reg.status === "CONFIRMED") {
-                        misInscripciones.add(reg.event_id);
-                    }
-                });
-            }
-        }
-
-        container.innerHTML = ""; // Limpiar spinner
-
-        if (events.length === 0) {
-            container.innerHTML = "<p class='text-muted'>No hay eventos programados en este momento.</p>";
-            return;
-        }
-
-        // 3. Dibujar cada evento evaluando si ya estamos inscriptos
-        events.forEach(event => {
-            const fecha = new Date(event.start_time).toLocaleString("es-AR", {dateStyle: "medium", timeStyle: "short"});
-            
-            // Lógica inteligente para el botón
-            let btnAccion = "";
-            if (!token) {
-                // No está logueado
-                btnAccion = `<a href="/login" class="btn btn-outline-primary w-100 mt-3">Inicia sesión para anotarte</a>`;
-            } else if (misInscripciones.has(event.id)) {
-                // Ya está inscripto
-                btnAccion = `<button class="btn btn-danger w-100 mt-3" onclick="desinscribirse(${event.id})">Desinscribirse</button>`;
+            if (meRes.ok) {
+                currentUser = await meRes.json();
             } else {
-                // Logueado pero no inscripto
-                btnAccion = `<button class="btn btn-success w-100 mt-3" onclick="inscribirse(${event.id})">Inscribirse</button>`;
+                localStorage.removeItem("token");
             }
+        }
 
-            const card = `
-                <div class="col-md-4 mb-4">
-                    <div class="card h-100 shadow-sm">
-                        <div class="card-body">
-                            <span class="badge bg-secondary mb-2">${event.category}</span>
-                            <h5 class="card-title text-primary">${event.title}</h5>
-                            <p class="card-text text-muted small">${event.description.substring(0, 100)}...</p>
-                            <hr>
-                            <p class="mb-1"><strong>📍 Lugar:</strong> ${event.location}</p>
-                            <p class="mb-1"><strong>📅 Fecha:</strong> ${fecha}</p>
-                            <p class="mb-1"><strong>👥 Cupos:</strong> ${event.current_enrollment} / ${event.capacity}</p>
-                            ${btnAccion}
-                        </div>
-                    </div>
-                </div>
-            `;
-            container.innerHTML += card;
-        });
+        // 2. Traer todos los eventos del sistema
+        const responseEvents = await fetch("/api/v1/events/");
+        allEvents = await responseEvents.json();
+
+        // 3. Ocultar el spinner
+        document.getElementById("loading-spinner").className = "d-none";
+
+        // 4. Renderizar la vista correcta según el rol correspondiente
+        if (!currentUser) {
+            renderPublicView();
+        } else if (currentUser.role === 'ORGANIZER') {
+            renderOrganizerView();
+        } else {
+            await fetchMisInscripciones(token);
+            renderStudentView();
+        }
 
     } catch (error) {
-        container.innerHTML = "<p class='text-danger'>Error al cargar los eventos.</p>";
         console.error(error);
+        document.getElementById("alert-box").className = "alert alert-danger";
+        document.getElementById("alert-box").innerText = "Error de conexión con el servidor.";
     }
 });
 
-// Función para inscribirse
-async function inscribirse(eventId) {
-    const token = localStorage.getItem("token");
-    const alertBox = document.getElementById("alert-box");
+// -------------------------------------------------------------
+// FUNCIONES DE RENDERIZADO POR ROL
+// -------------------------------------------------------------
 
-    try {
-        const response = await fetch(`/api/v1/events/${eventId}/register`, {
-            method: "POST",
-            headers: { "Authorization": `Bearer ${token}` }
-        });
+function renderPublicView() {
+    document.getElementById("page-title").innerText = "Cartelera de Eventos";
+    const container = document.getElementById("public-view");
+    container.classList.remove("d-none");
 
-        if (response.ok) {
-            alertBox.className = "alert alert-success";
-            alertBox.innerText = "¡Te has inscripto con éxito!";
-            setTimeout(() => window.location.reload(), 1500); 
-        } else {
-            const error = await response.json();
-            alertBox.className = "alert alert-danger";
-            alertBox.innerText = error.detail || "No se pudo completar la inscripción.";
+    if (allEvents.length === 0) {
+        container.innerHTML = "<p class='text-muted'>No hay eventos programados.</p>";
+        return;
+    }
+
+    allEvents.forEach(event => {
+        const fecha = new Date(event.start_time).toLocaleDateString("es-AR");
+        container.innerHTML += `
+            <div class="col-md-4 mb-4">
+                <div class="card h-100 shadow-sm">
+                    <div class="card-body">
+                        <span class="badge bg-secondary mb-2">${event.category}</span>
+                        <h5 class="card-title text-primary">${event.title}</h5>
+                        <p class="card-text text-muted small">${event.description.substring(0, 80)}...</p>
+                        <p class="mb-1"><strong>📅 Fecha:</strong> ${fecha}</p>
+                        <a href="/login" class="btn btn-outline-primary w-100 mt-3">Inicia sesión para anotarte</a>
+                    </div>
+                </div>
+            </div>`;
+    });
+}
+
+function renderOrganizerView() {
+    document.getElementById("page-title").innerText = "Panel de Administración de Eventos";
+    const container = document.getElementById("organizer-view");
+    const tbody = document.getElementById("organizer-table-body");
+    container.classList.remove("d-none");
+
+    const misEventos = allEvents.filter(e => e.organizer_id === currentUser.id);
+
+    if (misEventos.length === 0) {
+        tbody.innerHTML = "<tr><td colspan='5' class='text-center text-muted'>Aún no has publicado ningún evento.</td></tr>";
+        return;
+    }
+
+    misEventos.forEach(event => {
+        const fecha = new Date(event.start_time).toLocaleDateString("es-AR", { dateStyle: "medium" });
+        tbody.innerHTML += `
+            <tr>
+                <td class="fw-bold text-primary">${event.title}</td>
+                <td><span class="badge bg-info text-dark">${event.category}</span></td>
+                <td>${fecha}</td>
+                <td>
+                    <div class="progress" style="height: 20px;">
+                        <div class="progress-bar" role="progressbar" style="width: ${(event.current_enrollment/event.capacity)*100}%">
+                            ${event.current_enrollment} / ${event.capacity}
+                        </div>
+                    </div>
+                </td>
+                <td>
+                    <button class="btn btn-sm btn-outline-danger" onclick="eliminarEvento(${event.id})">Eliminar</button>
+                    <button class="btn btn-sm btn-outline-secondary disabled" title="Próximamente">Editar</button>
+                </td>
+            </tr>`;
+    });
+}
+
+function renderStudentView() {
+    document.getElementById("page-title").innerText = "Calendario Académico";
+    document.getElementById("student-view").classList.remove("d-none");
+
+    const calendarEl = document.getElementById('calendar');
+    
+    const calendarEvents = allEvents.map(e => ({
+        id: e.id,
+        title: e.title,
+        start: e.start_time,
+        end: e.end_time,
+        backgroundColor: misInscripciones.has(e.id) ? "#198754" : "#0d6efd",
+        extendedProps: e
+    }));
+
+    const calendar = new FullCalendar.Calendar(calendarEl, {
+        initialView: 'dayGridMonth',
+        locale: 'es',
+        headerToolbar: {
+            left: 'prev,next today',
+            center: 'title',
+            right: 'dayGridMonth,timeGridWeek,listWeek'
+        },
+        buttonText: { today: 'Hoy', month: 'Mes', week: 'Semana', list: 'Agenda' },
+        events: calendarEvents,
+        eventClick: function(info) {
+            abrirModalEvento(info.event.extendedProps);
         }
-    } catch (error) {
-        console.error("Error:", error);
+    });
+    
+    calendar.render();
+}
+
+// -------------------------------------------------------------
+// LÓGICA DE INSCRIPCIONES Y MODALES (ALUMNOS)
+// -------------------------------------------------------------
+
+async function fetchMisInscripciones(token) {
+    const response = await fetch("/api/v1/users/me/registrations", {
+        headers: { "Authorization": `Bearer ${token}` }
+    });
+    if (response.ok) {
+        const regs = await response.json();
+        regs.forEach(reg => {
+            if (reg.status === "CONFIRMED") misInscripciones.add(reg.event_id);
+        });
     }
 }
 
-// Función para cancelar la inscripción
-async function desinscribirse(eventId) {
+function abrirModalEvento(event) {
+    document.getElementById("modalTitle").innerText = event.title;
+    document.getElementById("modalCategory").innerText = event.category;
+    document.getElementById("modalDescription").innerText = event.description;
+    document.getElementById("modalLocation").innerText = event.location;
+    document.getElementById("modalStart").innerText = new Date(event.start_time).toLocaleString("es-AR");
+    document.getElementById("modalCapacity").innerText = `${event.current_enrollment} / ${event.capacity}`;
+
+    const footer = document.getElementById("modalFooter");
+    if (misInscripciones.has(event.id)) {
+        footer.innerHTML = `<button class="btn btn-danger w-100" onclick="procesarInscripcion(${event.id}, 'cancel')">Desinscribirse</button>`;
+    } else if (event.current_enrollment >= event.capacity) {
+        footer.innerHTML = `<button class="btn btn-secondary w-100 disabled">Cupos Agotados</button>`;
+    } else {
+        footer.innerHTML = `<button class="btn btn-success w-100" onclick="procesarInscripcion(${event.id}, 'register')">Inscribirse</button>`;
+    }
+
+    const modal = new bootstrap.Modal(document.getElementById('eventModal'));
+    modal.show();
+}
+
+async function procesarInscripcion(eventId, action) {
     const token = localStorage.getItem("token");
-    const alertBox = document.getElementById("alert-box");
-
-    // Opcional: Pequeña confirmación visual antes de borrar
-    if(!confirm("¿Estás seguro de que quieres cancelar tu inscripción a este evento?")) return;
-
     try {
-        const response = await fetch(`/api/v1/events/${eventId}/cancel`, {
+        const response = await fetch(`/api/v1/events/${eventId}/${action}`, {
             method: "POST",
             headers: { "Authorization": `Bearer ${token}` }
         });
-
         if (response.ok) {
-            alertBox.className = "alert alert-info";
-            alertBox.innerText = "Tu inscripción ha sido cancelada. Liberaste el cupo.";
-            setTimeout(() => window.location.reload(), 1500); 
+            window.location.reload();
         } else {
-            const error = await response.json();
-            alertBox.className = "alert alert-danger";
-            alertBox.innerText = error.detail || "No se pudo cancelar la inscripción.";
+            const err = await response.json();
+            alert("Error: " + err.detail);
         }
     } catch (error) {
-        console.error("Error:", error);
+        console.error(error);
+    }
+}
+
+// -------------------------------------------------------------
+// LÓGICA DE ORGANIZADOR
+// -------------------------------------------------------------
+
+async function eliminarEvento(eventId) {
+    if(!confirm("¿ESTÁS SEGURO? Esta acción eliminará el evento y borrará a todos los inscriptos.")) return;
+    
+    const token = localStorage.getItem("token");
+    try {
+        const response = await fetch(`/api/v1/events/${eventId}`, {
+            method: "DELETE",
+            headers: { "Authorization": `Bearer ${token}` }
+        });
+        
+        if (response.ok || response.status === 204) {
+            window.location.reload();
+        } else {
+            const err = await response.json();
+            alert("Error al eliminar: " + err.detail);
+        }
+    } catch (error) {
+        console.error(error);
     }
 }
 </script>

@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy import or_
 from pydantic import BaseModel
 
 from app.core.database import get_db
@@ -10,6 +11,7 @@ from app.core.security import verify_password, get_password_hash, create_access_
 from app.core.config import settings
 from app.models.domain import User
 from app.schemas.domain import UserCreate, UserResponse
+from app.api.deps import get_current_user
 
 router = APIRouter()
 
@@ -19,15 +21,27 @@ class Token(BaseModel):
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 async def register(user_in: UserCreate, db: AsyncSession = Depends(get_db)):
-    # 1. Comprobar si el usuario ya existe
-    result = await db.execute(select(User).where(User.email == user_in.email))
-    if result.scalar_one_or_none():
-        raise HTTPException(
-            status_code=400,
-            detail="The user with this email already exists in the system",
-        )
+    # 1. Comprobar si el usuario (email o dni) ya existe
+    query = select(User).where(
+        or_(User.email == user_in.email, User.dni == user_in.dni)
+    )
+    result = await db.execute(query)
+    existing_user = result.scalar_one_or_none()
     
-    # 2. Crear la instancia (Esta línea debe estar alineada a la izquierda, fuera del 'if')
+    # 2. Devolver un error claro dependiendo de qué está duplicado
+    if existing_user:
+        if existing_user.email == user_in.email:
+            raise HTTPException(
+                status_code=400,
+                detail="Este correo electrónico ya está registrado.",
+            )
+        if existing_user.dni == user_in.dni:
+            raise HTTPException(
+                status_code=400,
+                detail="Este DNI ya está registrado en otra cuenta.",
+            )
+    
+    # 3. Crear la instancia si todo está en orden
     db_user = User(
         email=user_in.email,
         password_hash=get_password_hash(user_in.password),
@@ -39,7 +53,7 @@ async def register(user_in: UserCreate, db: AsyncSession = Depends(get_db)):
         role=user_in.role
     )
     
-    # 3. Guardar en la base de datos
+    # 4. Guardar en la base de datos
     db.add(db_user)
     await db.commit()
     await db.refresh(db_user)
@@ -55,7 +69,7 @@ async def login(
     if not user or not verify_password(form_data.password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
+            detail="Correo o contraseña incorrectos.",
             headers={"WWW-Authenticate": "Bearer"},
         )
     
@@ -64,3 +78,11 @@ async def login(
         subject=user.id, expires_delta=access_token_expires
     )
     return {"access_token": access_token, "token_type": "bearer"}
+
+@router.get("/me", response_model=UserResponse)
+async def read_users_me(current_user: User = Depends(get_current_user)):
+    """
+    Devuelve los datos del usuario actualmente logueado.
+    Sirve para que el Frontend sepa si es USER (Alumno) u ORGANIZER (Institución).
+    """
+    return current_user
