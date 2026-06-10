@@ -15,6 +15,13 @@
 <div class="row d-none" id="public-view"></div>
 
 <div id="student-view" class="d-none">
+    
+    <div id="recommendations-section" class="mb-5 d-none">
+        <h4 class="text-success fw-bold mb-3">⭐ Recomendados para vos</h4>
+        <div class="row" id="recommendations-container">
+            </div>
+    </div>
+
     <div class="card shadow-sm">
         <div class="card-body p-4">
             <div id="calendar"></div>
@@ -70,12 +77,12 @@
 let currentUser = null;
 let misInscripciones = new Set();
 let allEvents = [];
+let misRecomendaciones = []; // Variable para almacenar recomendaciones
 
 document.addEventListener("DOMContentLoaded", async () => {
     const token = localStorage.getItem("token");
 
     try {
-        // 1. Averiguar quién está viendo la pantalla
         if (token) {
             const meRes = await fetch("/api/v1/auth/me", {
                 headers: { "Authorization": `Bearer ${token}` }
@@ -87,20 +94,19 @@ document.addEventListener("DOMContentLoaded", async () => {
             }
         }
 
-        // 2. Traer todos los eventos del sistema
         const responseEvents = await fetch("/api/v1/events/");
         allEvents = await responseEvents.json();
 
-        // 3. Ocultar el spinner
         document.getElementById("loading-spinner").className = "d-none";
 
-        // 4. Renderizar la vista correcta según el rol correspondiente
         if (!currentUser) {
             renderPublicView();
         } else if (currentUser.role === 'ORGANIZER') {
             renderOrganizerView();
         } else {
+            // Cargar datos extra para el alumno antes de renderizar
             await fetchMisInscripciones(token);
+            await fetchRecomendaciones(token); // Obtenemos las recomendaciones
             renderStudentView();
         }
 
@@ -181,6 +187,34 @@ function renderStudentView() {
     document.getElementById("page-title").innerText = "Calendario Académico";
     document.getElementById("student-view").classList.remove("d-none");
 
+    // 1. RENDERIZAR RECOMENDACIONES SI EXISTEN
+    const recSection = document.getElementById("recommendations-section");
+    const recContainer = document.getElementById("recommendations-container");
+    
+    if (misRecomendaciones.length > 0) {
+        recSection.classList.remove("d-none");
+        recContainer.innerHTML = "";
+        
+        // Mostrar los 3 eventos más recomendados
+        misRecomendaciones.slice(0, 3).forEach(event => {
+            const fecha = new Date(event.start_time).toLocaleDateString("es-AR", { dateStyle: "medium" });
+            recContainer.innerHTML += `
+                <div class="col-md-4 mb-3">
+                    <div class="card h-100 border-success shadow-sm" style="cursor: pointer; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'" onclick="abrirModalPorId(${event.id})">
+                        <div class="card-body">
+                            <span class="badge bg-success mb-2">Recomendado</span>
+                            <span class="badge bg-secondary mb-2">${event.category}</span>
+                            <h5 class="card-title text-success">${event.title}</h5>
+                            <p class="card-text text-muted small">${event.description.substring(0, 60)}...</p>
+                            <p class="mb-0 small fw-bold">📅 ${fecha}</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+    }
+
+    // 2. RENDERIZAR CALENDARIO NORMAL
     const calendarEl = document.getElementById('calendar');
     
     const calendarEvents = allEvents.map(e => ({
@@ -211,7 +245,7 @@ function renderStudentView() {
 }
 
 // -------------------------------------------------------------
-// LÓGICA DE INSCRIPCIONES Y MODALES (ALUMNOS)
+// LÓGICA DE DATOS (ALUMNOS)
 // -------------------------------------------------------------
 
 async function fetchMisInscripciones(token) {
@@ -224,6 +258,25 @@ async function fetchMisInscripciones(token) {
             if (reg.status === "CONFIRMED") misInscripciones.add(reg.event_id);
         });
     }
+}
+
+async function fetchRecomendaciones(token) {
+    try {
+        const response = await fetch("/api/v1/recommendations/me/recommendations", {
+            headers: { "Authorization": `Bearer ${token}` }
+        });
+        if (response.ok) {
+            misRecomendaciones = await response.json();
+        }
+    } catch (error) {
+        console.error("Error al obtener recomendaciones:", error);
+    }
+}
+
+// Helper para abrir modal desde las tarjetas de recomendación
+window.abrirModalPorId = function(eventId) {
+    const event = allEvents.find(e => e.id === eventId);
+    if (event) abrirModalEvento(event);
 }
 
 function abrirModalEvento(event) {
