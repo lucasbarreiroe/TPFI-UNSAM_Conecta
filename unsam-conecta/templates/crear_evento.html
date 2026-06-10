@@ -41,6 +41,58 @@
                         <label class="form-label">Capacidad Máxima (Cupos)</label>
                         <input type="number" id="capacity" class="form-control" required>
                     </div>
+                    <div class="mb-3">
+                        <label class="form-label">Etiquetas del Evento</label>
+
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" value="Tecnología" id="tag1">
+                            <label class="form-check-label" for="tag1">
+                                Tecnología
+                            </label>
+                        </div>
+
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" value="Cine" id="tag2">
+                            <label class="form-check-label" for="tag2">
+                                Cine
+                            </label>
+                        </div>
+
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" value="Política" id="tag3">
+                            <label class="form-check-label" for="tag2">
+                                Política
+                            </label>
+                        </div>
+
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" value="Historia" id="tag4">
+                            <label class="form-check-label" for="tag2">
+                                Historia
+                            </label>
+                        </div>
+
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" value="Salud" id="tag5">
+                            <label class="form-check-label" for="tag2">
+                                Salud
+                            </label>
+                        </div>
+                        
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" value="Comunicación" id="tag6">
+                            <label class="form-check-label" for="tag2">
+                                Comunicación
+                            </label>
+                        </div>
+
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" value="Ciencias Exactas" id="tag6">
+                            <label class="form-check-label" for="tag2">
+                                Ciencias Exactas
+                            </label>
+                        </div>
+                    </div>
                     <button type="submit" class="btn btn-primary w-100">Publicar Evento de la Universidad</button>
                 </form>
             </div>
@@ -59,6 +111,11 @@ document.getElementById("eventoForm").addEventListener("submit", async (e) => {
         alertBox.innerText = "Debes iniciar sesión para realizar esta acción.";
         return;
     }
+    const tags = [];
+
+    document
+        .querySelectorAll('input[type="checkbox"]:checked')
+        .forEach(cb => tags.push(cb.value));
 
     const payload = {
         title: document.getElementById("title").value,
@@ -68,7 +125,7 @@ document.getElementById("eventoForm").addEventListener("submit", async (e) => {
         start_time: document.getElementById("start_time").value + ":00Z",
         end_time: document.getElementById("end_time").value + ":00Z",
         capacity: parseInt(document.getElementById("capacity").value),
-        tags: []
+        tags: tags
     };
 
     try {

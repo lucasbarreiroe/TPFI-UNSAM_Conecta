@@ -24,7 +24,50 @@
                             <option value="USER">Alumno / Estudiante</option>
                             <option value="ORGANIZER">Unidad Académica / Organizador</option>
                         </select>
+                        <div class="mb-3" id="interests-section">
+                        <label class="form-label">Áreas de interés</label>
+
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" value="Tecnología" id="tec">
+                            <label class="form-check-label">Tecnología</label>
+                        </div>
+
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" value="Comunicación" id="com">
+                            <label class="form-check-label">Comunicación</label>
+                        </div>
+
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" value="Ciencias Exactas" id="ciencias_ex">
+                            <label class="form-check-label">Ciencias Exactas</label>
+                        </div>
+
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" value="Política" id="politica">
+                            <label class="form-check-label">política</label>
+                        </div>
+
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" value="Cine" id="cine">
+                            <label class="form-check-label">Cine</label>
+                        </div>
+
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" value="Historia" id="hist">
+                            <label class="form-check-label">Historia</label>
+                        </div>
+
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" value="Salud" id="salud">
+                            <label class="form-check-label">Salud</label>
+                        </div>
+
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" value="Cine" id="cine">
+                            <label class="form-check-label">Cine</label>
+                        </div>
                     </div>
+                    
 
                     <div class="mb-3">
                         <label class="form-label">DNI / CUIT</label>
@@ -35,6 +78,7 @@
                         <input type="password" id="password" class="form-control" required>
                     </div>
                     <button type="submit" class="btn btn-primary w-100">Crear Cuenta</button>
+                    
                 </form>
             </div>
         </div>
@@ -45,14 +89,19 @@
 document.getElementById("registroForm").addEventListener("submit", async (e) => {
     e.preventDefault();
     const alertBox = document.getElementById("alert-box");
-    
+    const intereses = [];
+
+    document
+        .querySelectorAll('#interests-section input[type="checkbox"]:checked')
+        .forEach(cb => intereses.push(cb.value));
     // Agregamos el rol al payload que se envía a FastAPI
     const payload = {
         full_name: document.getElementById("nombre").value,
         email: document.getElementById("email").value,
         dni: document.getElementById("dni").value,
         password: document.getElementById("password").value,
-        role: document.getElementById("role").value
+        role: document.getElementById("role").value,
+        interests: intereses
     };
 
     try {
