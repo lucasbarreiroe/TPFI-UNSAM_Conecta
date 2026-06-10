@@ -196,7 +196,7 @@ function renderStudentView() {
         recContainer.innerHTML = "";
         
         // Mostrar los 3 eventos más recomendados
-        misRecomendaciones.slice(0, 3).forEach(event => {
+        misRecomendaciones.filter(event => !misInscripciones.has(event.id)).slice(0, 3).forEach(event => {
             const fecha = new Date(event.start_time).toLocaleDateString("es-AR", { dateStyle: "medium" });
             recContainer.innerHTML += `
                 <div class="col-md-4 mb-3">
