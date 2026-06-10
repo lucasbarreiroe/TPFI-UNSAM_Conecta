@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block content %}
+<h2 class="text-primary mb-4">Mis Inscripciones</h2>
+<div id="alert-box" class="alert d-none"></div>
+
+<div class="text-center" id="loading-spinner">
+    <div class="spinner-border text-primary" role="status"></div>
+</div>
+
+<div class="row" id="my-events-container">
+    </div>
+
+<script>
+document.addEventListener("DOMContentLoaded", async () => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+        window.location.href = "/login";
+        return;
+    }
+
+    const container = document.getElementById("my-events-container");
+    const spinner = document.getElementById("loading-spinner");
+
+    try {
+        // Obtenemos los eventos y las inscripciones en paralelo
+        const [regsRes, eventsRes] = await Promise.all([
+            fetch("/api/v1/users/me/registrations", { headers: {"Authorization": `Bearer ${token}`} }),
+            fetch("/api/v1/events/")
+        ]);
+
+        if (!regsRes.ok) throw new Error("No se pudieron cargar las inscripciones");
+        
+        const regs = await regsRes.json();
+        const allEvents = await eventsRes.json();
+
+        spinner.classList.add("d-none");
+
+        // Cruzamos los datos: Quedarnos solo con IDs de eventos donde estemos CONFIRMADOS
+        const myEventIds = regs.filter(r => r.status === 'CONFIRMED').map(r => r.event_id);
+        const myEvents = allEvents.filter(e => myEventIds.includes(e.id));
+
+        if (myEvents.length === 0) {
+            container.innerHTML = `
+                <div class="col-12">
+                    <div class="alert alert-info">
+                        Aún no te has inscripto a ningún evento. <a href="/eventos" class="alert-link">Explorar la cartelera</a>.
+                    </div>
+                </div>`;
+            return;
+        }
+
+        myEvents.forEach(event => {
+            const fecha = new Date(event.start_time).toLocaleString("es-AR", {dateStyle: "medium", timeStyle: "short"});
+            container.innerHTML += `
+                <div class="col-md-4 mb-4">
+                    <div class="card h-100 shadow-sm border-primary">
+                        <div class="card-body">
+                            <span class="badge bg-secondary mb-2">${event.category}</span>
+                            <h5 class="card-title text-primary">${event.title}</h5>
+                            <p class="card-text text-muted small">${event.description.substring(0, 100)}...</p>
+                            <hr>
+                            <p class="mb-1"><strong>📍 Lugar:</strong> ${event.location}</p>
+                            <p class="mb-1"><strong>📅 Fecha:</strong> ${fecha}</p>
+                            <button class="btn btn-outline-danger w-100 mt-3" onclick="desinscribirse(${event.id})">Cancelar Inscripción</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+
+    } catch (error) {
+        console.error(error);
+        spinner.classList.add("d-none");
+        container.innerHTML = `<div class="col-12"><div class="alert alert-danger">Hubo un error al cargar tus inscripciones.</div></div>`;
+    }
+});
+
+// Función para cancelar desde el panel de Mis Inscripciones
+async function desinscribirse(eventId) {
+    if(!confirm("¿Estás seguro de que quieres cancelar tu inscripción a este evento?")) return;
+    const token = localStorage.getItem("token");
+    const alertBox = document.getElementById("alert-box");
+
+    try {
+        const response = await fetch(`/api/v1/events/${eventId}/cancel`, {
+            method: "POST",
+            headers: { "Authorization": `Bearer ${token}` }
+        });
+
+        if (response.ok) {
+            alertBox.className = "alert alert-info mb-4 d-block";
+            alertBox.innerText = "Tu inscripción ha sido cancelada con éxito. Has liberado el cupo.";
+            setTimeout(() => window.location.reload(), 1500);
+        } else {
+            const err = await response.json();
+            alertBox.className = "alert alert-danger mb-4 d-block";
+            alertBox.innerText = err.detail || "No se pudo cancelar la inscripción.";
+        }
+    } catch (error) {
+        console.error(error);
+    }
+}
+</script>
+{% endblock %}

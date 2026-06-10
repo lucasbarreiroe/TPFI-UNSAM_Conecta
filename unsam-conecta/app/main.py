@@ -13,14 +13,10 @@ from app.core.database import engine, Base
 # ---------------------------------------------------------
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Esto se ejecuta una única vez al iniciar el servidor.
-    # Verifica y crea de forma automática las tablas en Supabase si no existen.
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     yield
-    # Lógica de apagado en caso de ser requerida (limpieza de recursos).
 
-# Inicialización de la aplicación FastAPI conectada al ciclo de vida
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version="1.0.0",
@@ -28,22 +24,17 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# 1. Configuración de directorios para archivos estáticos
 app.mount("/static", StaticFiles(directory="static"), name="static")
-
-# 2. Configuración del motor de renderizado de plantillas Jinja2
 templates = Jinja2Templates(directory="templates")
 
-# 3. Configuración de la política CORS para conectividad del Frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Ajustar a las URLs específicas en entornos de producción
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# 4. Inclusión de las rutas originales de la API
 app.include_router(api_router, prefix=settings.API_V1_STR)
 
 # ---------------------------------------------------------
@@ -69,16 +60,17 @@ async def serve_eventos(request: Request):
 async def serve_crear_evento(request: Request):
     return templates.TemplateResponse("crear_evento.html", {"request": request, "title": "Crear Evento"})
 
+# NUEVA RUTA: Mis Inscripciones para Estudiantes
+@app.get("/mis-inscripciones")
+async def serve_mis_inscripciones(request: Request):
+    return templates.TemplateResponse("mis_inscripciones.html", {"request": request, "title": "Mis Inscripciones"})
+
 # ---------------------------------------------------------
 # RUTAS DE CONTROL DE SISTEMA
 # ---------------------------------------------------------
 @app.get("/health", tags=["Health"])
 async def health_check():
-    return {
-        "status": "healthy",
-        "project": settings.PROJECT_NAME,
-        "environment": settings.ENVIRONMENT
-    }
+    return {"status": "healthy", "project": settings.PROJECT_NAME, "environment": settings.ENVIRONMENT}
 
 if __name__ == "__main__":
     import uvicorn
