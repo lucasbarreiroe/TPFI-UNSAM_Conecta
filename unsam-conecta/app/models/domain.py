@@ -1,6 +1,6 @@
 import enum
 from datetime import datetime, timezone
-from sqlalchemy import String, Integer, ForeignKey, DateTime, Enum, Text, ARRAY
+from sqlalchemy import String, Integer, ForeignKey, DateTime, Enum, Text, ARRAY, Boolean
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.database import Base
 
@@ -39,6 +39,8 @@ class User(Base):
     preferred_notification_channel: Mapped[NotificationChannelEnum] = mapped_column(
         Enum(NotificationChannelEnum), default=NotificationChannelEnum.EMAIL
     )
+    # NUEVO: Estado de verificación de correo
+    is_verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     # Relationships
     events_organized = relationship("Event", back_populates="organizer")
@@ -51,7 +53,7 @@ class Event(Base):
     title: Mapped[str] = mapped_column(String, index=True, nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)
     organizer_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
-    category: Mapped[str] = mapped_column(String, index=True, nullable=False) # e.g., ECyT, EPyG
+    category: Mapped[str] = mapped_column(String, index=True, nullable=False)
     location: Mapped[str] = mapped_column(String, nullable=False)
     start_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True, nullable=False)
     end_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
@@ -87,7 +89,7 @@ class Review(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     registration_id: Mapped[int] = mapped_column(ForeignKey("registrations.id"), unique=True, nullable=False)
-    rating: Mapped[int] = mapped_column(Integer, nullable=False) # 1 to 5
+    rating: Mapped[int] = mapped_column(Integer, nullable=False)
     comment: Mapped[str] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)

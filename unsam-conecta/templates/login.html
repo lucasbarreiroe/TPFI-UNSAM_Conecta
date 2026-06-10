@@ -25,6 +25,16 @@
 </div>
 
 <script>
+// NUEVO: Escuchar si venimos redirigidos desde el link del correo electrónico
+document.addEventListener("DOMContentLoaded", () => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("verified") === "true") {
+        const alertBox = document.getElementById("alert-box");
+        alertBox.className = "alert alert-success d-block mb-3";
+        alertBox.innerText = "¡Tu correo ha sido verificado! Ya puedes iniciar sesión.";
+    }
+});
+
 document.getElementById("loginForm").addEventListener("submit", async (e) => {
     e.preventDefault();
     const alertBox = document.getElementById("alert-box");
@@ -45,8 +55,10 @@ document.getElementById("loginForm").addEventListener("submit", async (e) => {
             localStorage.setItem("token", data.access_token);
             window.location.href = "/eventos";
         } else {
-            alertBox.className = "alert alert-danger";
-            alertBox.innerText = "Correo o contraseña incorrectos";
+            const error = await response.json();
+            alertBox.className = "alert alert-danger d-block mb-3";
+            // NUEVO: Ahora extrae el mensaje del backend (ej: "Por favor, revisa tu correo...")
+            alertBox.innerText = error.detail || "Correo o contraseña incorrectos";
         }
     } catch (error) {
         console.error("Error:", error);

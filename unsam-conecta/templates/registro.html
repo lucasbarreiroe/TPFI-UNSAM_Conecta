@@ -24,7 +24,8 @@
                             <option value="USER">Alumno / Estudiante</option>
                             <option value="ORGANIZER">Unidad Académica / Organizador</option>
                         </select>
-                        <div class="mb-3" id="interests-section">
+                    </div>
+                    <div class="mb-3" id="interests-section">
                         <label class="form-label">Áreas de interés</label>
 
                         <div class="form-check">
@@ -44,7 +45,7 @@
 
                         <div class="form-check">
                             <input class="form-check-input" type="checkbox" value="Política" id="politica">
-                            <label class="form-check-label">política</label>
+                            <label class="form-check-label">Política</label>
                         </div>
 
                         <div class="form-check">
@@ -61,14 +62,8 @@
                             <input class="form-check-input" type="checkbox" value="Salud" id="salud">
                             <label class="form-check-label">Salud</label>
                         </div>
-
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" value="Cine" id="cine">
-                            <label class="form-check-label">Cine</label>
-                        </div>
                     </div>
                     
-
                     <div class="mb-3">
                         <label class="form-label">DNI / CUIT</label>
                         <input type="text" id="dni" class="form-control" required>
@@ -94,7 +89,8 @@ document.getElementById("registroForm").addEventListener("submit", async (e) => 
     document
         .querySelectorAll('#interests-section input[type="checkbox"]:checked')
         .forEach(cb => intereses.push(cb.value));
-    // Agregamos el rol al payload que se envía a FastAPI
+        
+    // Agregamos el rol y los intereses al payload que se envía a FastAPI
     const payload = {
         full_name: document.getElementById("nombre").value,
         email: document.getElementById("email").value,
@@ -112,12 +108,13 @@ document.getElementById("registroForm").addEventListener("submit", async (e) => 
         });
 
         if (response.ok) {
-            alertBox.className = "alert alert-success";
-            alertBox.innerText = "¡Registro exitoso! Redirigiendo al login...";
-            setTimeout(() => window.location.href = "/login", 1500);
+            alertBox.className = "alert alert-success d-block";
+            // NUEVO: Mensaje indicando que revise el correo y redirección al inicio
+            alertBox.innerText = "¡Registro exitoso! Por favor, revisa tu correo electrónico para activar tu cuenta.";
+            setTimeout(() => window.location.href = "/", 3500);
         } else {
             const error = await response.json();
-            alertBox.className = "alert alert-danger";
+            alertBox.className = "alert alert-danger d-block";
             alertBox.innerText = error.detail || "Error en el registro";
         }
     } catch (error) {

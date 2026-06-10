@@ -9,6 +9,10 @@ class Settings(BaseSettings):
     SECRET_KEY: str = "your_secure_random_string" # En producción esto viene del .env
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     
+    # Email Settings (NUEVO)
+    SMTP_EMAIL: str = ""
+    SMTP_PASSWORD: str = ""
+    
     # Database Settings
     DATABASE_URL: str
 

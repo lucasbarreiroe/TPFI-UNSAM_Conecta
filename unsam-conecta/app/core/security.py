@@ -12,7 +12,6 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     
 def get_password_hash(password: str) -> str:
     # Bcrypt solo soporta los primeros 72 bytes. 
-    # Truncar evita el ValueError que vimos en los logs.
     return pwd_context.hash(password[:72])
 
 def create_access_token(subject: Union[str, Any], expires_delta: timedelta = None) -> str:
@@ -24,3 +23,9 @@ def create_access_token(subject: Union[str, Any], expires_delta: timedelta = Non
     to_encode = {"exp": expire, "sub": str(subject)}
     encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm="HS256")
     return encoded_jwt
+
+# NUEVO: Generador de token para verificación de email
+def create_verification_token(email: str) -> str:
+    expire = datetime.now(timezone.utc) + timedelta(hours=24)
+    to_encode = {"exp": expire, "sub": email, "type": "email_verification"}
+    return jwt.encode(to_encode, settings.SECRET_KEY, algorithm="HS256")
