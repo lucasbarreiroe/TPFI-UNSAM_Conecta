@@ -1,8 +1,9 @@
-import smtplib
+# import smtplib
+import aiosmtplib
 from email.message import EmailMessage
 from app.core.config import settings
 
-def send_verification_email(user_email: str, token: str):
+async def send_verification_email(user_email: str, token: str):
     #verification_url = f"http://127.0.0.1:8000/api/v1/auth/verify?token={token}"
     verification_url = f"{settings.BASE_URL}/api/v1/auth/verify?token={token}"
 
@@ -30,10 +31,23 @@ def send_verification_email(user_email: str, token: str):
     </html>
     """, subtype='html')
 
+    # try:
+    #     with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
+    #         smtp.login(settings.SMTP_EMAIL, settings.SMTP_PASSWORD)
+    #         smtp.send_message(msg)
+    #         print(f"✅ Correo enviado con éxito a {user_email}")
+    # except Exception as e:
+    #     print(f"❌ Error enviando correo: {e}")
     try:
-        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
-            smtp.login(settings.SMTP_EMAIL, settings.SMTP_PASSWORD)
-            smtp.send_message(msg)
-            print(f"✅ Correo enviado con éxito a {user_email}")
+        # Usamos la conexión asíncrona y el puerto seguro 587 con STARTTLS para Render
+        await aiosmtplib.send(
+            msg,
+            hostname="smtp.gmail.com",
+            port=587,
+            username=settings.SMTP_EMAIL,
+            password=settings.SMTP_PASSWORD,
+            start_tls=True
+        )
+        print(f"✅ Correo enviado con éxito a {user_email}")
     except Exception as e:
         print(f"❌ Error enviando correo: {e}")
