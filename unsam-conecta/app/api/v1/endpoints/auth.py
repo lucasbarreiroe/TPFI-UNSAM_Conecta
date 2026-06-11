@@ -57,8 +57,14 @@ async def register(
     await db.refresh(db_user)
 
     # Crear token y enviar correo en SEGUNDO PLANO
+    #verification_token = create_verification_token(email=db_user.email)
+    #background_tasks.add_task(send_verification_email, db_user.email, verification_token)
+
+    # Crear token y enviar correo DIRECTAMENTE (bloqueante)
     verification_token = create_verification_token(email=db_user.email)
-    background_tasks.add_task(send_verification_email, db_user.email, verification_token)
+    
+    # Ejecutamos la función directamente aquí
+    send_verification_email(db_user.email, verification_token)
 
     return db_user
 
