@@ -12,7 +12,8 @@ class Settings(BaseSettings):
     # Email Settings (NUEVO)
     SMTP_EMAIL: str = ""
     SMTP_PASSWORD: str = ""
-    
+    BASE_URL: str
+
     # Database Settings
     DATABASE_URL: str
 
