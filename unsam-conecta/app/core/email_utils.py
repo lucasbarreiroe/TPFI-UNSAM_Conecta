@@ -3,8 +3,9 @@ from email.message import EmailMessage
 from app.core.config import settings
 
 def send_verification_email(user_email: str, token: str):
-    verification_url = f"http://127.0.0.1:8000/api/v1/auth/verify?token={token}"
-    
+    #verification_url = f"http://127.0.0.1:8000/api/v1/auth/verify?token={token}"
+    verification_url = f"{settings.BASE_URL}/api/v1/auth/verify?token={token}"
+
     if not settings.SMTP_EMAIL or not settings.SMTP_PASSWORD:
         print(f"\n⚠️ MODO PRUEBA: No hay credenciales SMTP en el .env")
         print(f"👉 Simulación de correo enviado a {user_email}")
