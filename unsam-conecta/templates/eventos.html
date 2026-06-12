@@ -77,7 +77,7 @@
 let currentUser = null;
 let misInscripciones = new Set();
 let allEvents = [];
-let misRecomendaciones = []; // Variable para almacenar recomendaciones
+let misRecomendaciones = []; 
 
 document.addEventListener("DOMContentLoaded", async () => {
     const token = localStorage.getItem("token");
@@ -104,9 +104,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         } else if (currentUser.role === 'ORGANIZER') {
             renderOrganizerView();
         } else {
-            // Cargar datos extra para el alumno antes de renderizar
             await fetchMisInscripciones(token);
-            await fetchRecomendaciones(token); // Obtenemos las recomendaciones
+            await fetchRecomendaciones(token); 
             renderStudentView();
         }
 
@@ -195,7 +194,6 @@ function renderStudentView() {
         recSection.classList.remove("d-none");
         recContainer.innerHTML = "";
         
-        // Mostrar los 3 eventos más recomendados
         misRecomendaciones.filter(event => !misInscripciones.has(event.id)).slice(0, 3).forEach(event => {
             const fecha = new Date(event.start_time).toLocaleDateString("es-AR", { dateStyle: "medium" });
             recContainer.innerHTML += `
@@ -236,6 +234,20 @@ function renderStudentView() {
         },
         buttonText: { today: 'Hoy', month: 'Mes', week: 'Semana', list: 'Agenda' },
         events: calendarEvents,
+
+        // ==========================================
+        // NUEVAS CONFIGURACIONES DE UI/UX PARA EVENTOS
+        // ==========================================
+        nextDayThreshold: '06:00:00', // Evita que un evento de trasnoche ocupe todo el casillero del día siguiente
+        eventDisplay: 'list-item',    // Cambia el bloque sólido por un punto limpio y texto
+        displayEventEnd: false,       // Oculta la hora de finalización en la grilla para que no se corte
+        eventTimeFormat: {            // Formato de hora limpio a 24hs (Ej: 14:30)
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false
+        },
+        // ==========================================
+
         eventClick: function(info) {
             abrirModalEvento(info.event.extendedProps);
         }
@@ -273,7 +285,6 @@ async function fetchRecomendaciones(token) {
     }
 }
 
-// Helper para abrir modal desde las tarjetas de recomendación
 window.abrirModalPorId = function(eventId) {
     const event = allEvents.find(e => e.id === eventId);
     if (event) abrirModalEvento(event);
