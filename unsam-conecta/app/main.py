@@ -1,12 +1,25 @@
+import os
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from app.core.config import settings
 from app.api.v1.api import api_router
 from app.core.database import engine, Base
+from app.core.email_utils import process_event_reminders
+
+# ---------------------------------------------------------
+# PLANIFICADOR DE TAREAS EN SEGUNDO PLANO
+# ---------------------------------------------------------
+scheduler = AsyncIOScheduler()
+
+@scheduler.scheduled_job('interval', minutes=10)
+async def scheduled_reminders():
+    print("🕒 Escaneando eventos próximos para enviar recordatorios...")
+    await process_event_reminders()
 
 # ---------------------------------------------------------
 # CICLO DE VIDA DE LA APLICACIÓN (LIFESPAN)
@@ -15,7 +28,16 @@ from app.core.database import engine, Base
 async def lifespan(app: FastAPI):
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        
+    # Iniciar el planificador de correos al prender el servidor
+    scheduler.start()
+    print("✅ Motor de envíos automatizados iniciado.")
+    
     yield
+    
+    # Apagar el planificador de correos de forma segura
+    scheduler.shutdown()
+    print("🛑 Motor de envíos automatizados detenido.")
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -60,7 +82,6 @@ async def serve_eventos(request: Request):
 async def serve_crear_evento(request: Request):
     return templates.TemplateResponse("crear_evento.html", {"request": request, "title": "Crear Evento"})
 
-# NUEVA RUTA: Mis Inscripciones para Estudiantes
 @app.get("/mis-inscripciones")
 async def serve_mis_inscripciones(request: Request):
     return templates.TemplateResponse("mis_inscripciones.html", {"request": request, "title": "Mis Inscripciones"})

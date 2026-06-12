@@ -1,5 +1,5 @@
 from datetime import timedelta
-from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import RedirectResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,9 +9,8 @@ from pydantic import BaseModel
 from jose import jwt, JWTError
 
 from app.core.database import get_db
-from app.core.security import verify_password, get_password_hash, create_access_token, create_verification_token
+from app.core.security import verify_password, get_password_hash, create_access_token
 from app.core.config import settings
-from app.core.email_utils import send_verification_email
 from app.models.domain import User
 from app.schemas.domain import UserCreate, UserResponse
 from app.api.deps import get_current_user
@@ -25,7 +24,6 @@ class Token(BaseModel):
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 async def register(
     user_in: UserCreate, 
-    # background_tasks: BackgroundTasks, 
     db: AsyncSession = Depends(get_db)
 ):
     query = select(User).where(
@@ -48,8 +46,7 @@ async def register(
         phone=user_in.phone,
         interests=user_in.interests,
         preferred_notification_channel=user_in.preferred_notification_channel,
-        role=user_in.role,
-        is_verified=True # Nace bloqueado
+        role=user_in.role
     )
     
     db.add(db_user)
@@ -57,7 +54,6 @@ async def register(
     await db.refresh(db_user)
 
     return db_user
-
 
 @router.post("/login", response_model=Token)
 async def login(

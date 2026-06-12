@@ -39,8 +39,6 @@ class User(Base):
     preferred_notification_channel: Mapped[NotificationChannelEnum] = mapped_column(
         Enum(NotificationChannelEnum), default=NotificationChannelEnum.EMAIL
     )
-    # NUEVO: Estado de verificación de correo
-    is_verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     # Relationships
     events_organized = relationship("Event", back_populates="organizer")
@@ -61,6 +59,10 @@ class Event(Base):
     current_enrollment: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     status: Mapped[EventStatusEnum] = mapped_column(Enum(EventStatusEnum), default=EventStatusEnum.PUBLISHED)
     tags: Mapped[list[str]] = mapped_column(ARRAY(String), default=[])
+    
+    # NUEVO: Controles para evitar mandar el mismo recordatorio dos veces
+    reminder_24h_sent: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    reminder_1h_sent: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     # Relationships
     organizer = relationship("User", back_populates="events_organized")
