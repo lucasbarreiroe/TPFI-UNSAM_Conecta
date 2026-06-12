@@ -43,10 +43,10 @@ async def send_verification_email(user_email: str, token: str):
         await aiosmtplib.send(
             msg,
             hostname="smtp.gmail.com",
-            port=587,
+            port=465,
             username=settings.SMTP_EMAIL,
             password=settings.SMTP_PASSWORD,
-            start_tls=True
+            use_tls=True
         )
         print(f"✅ Correo enviado con éxito a {user_email}")
     except Exception as e:
