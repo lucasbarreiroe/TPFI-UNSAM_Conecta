@@ -16,7 +16,7 @@ from app.core.email_utils import process_event_reminders
 # ---------------------------------------------------------
 scheduler = AsyncIOScheduler()
 
-@scheduler.scheduled_job('interval', minutes=10)
+@scheduler.scheduled_job('interval', minutes=1)
 async def scheduled_reminders():
     print("🕒 Escaneando eventos próximos para enviar recordatorios...")
     await process_event_reminders()

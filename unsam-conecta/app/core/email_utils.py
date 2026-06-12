@@ -1,7 +1,7 @@
 import smtplib
 import asyncio
 from email.message import EmailMessage
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
@@ -23,7 +23,6 @@ async def send_email(to_email: str, subject: str, html_content: str):
     msg.set_content(html_content, subtype='html')
 
     try:
-        # Enviamos el correo en un "hilo" separado para no frenar FastAPI
         def _send():
             with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
                 smtp.login(settings.SMTP_EMAIL, settings.SMTP_PASSWORD)
@@ -39,7 +38,6 @@ async def process_event_reminders():
     async with AsyncSessionLocal() as db:
         now = datetime.now(timezone.utc)
         
-        # Buscar eventos publicados que sean en el futuro, cargando también sus inscriptos
         query = select(Event).options(
             selectinload(Event.registrations).selectinload(Registration.user)
         ).where(
@@ -54,13 +52,11 @@ async def process_event_reminders():
             time_until_start = event.start_time - now
             hours_until_start = time_until_start.total_seconds() / 3600.0
 
-            # Recordatorio 24 hs (Enviamos si faltan entre 23.5 y 24.5 horas)
             if 23.5 <= hours_until_start <= 24.5 and not event.reminder_24h_sent:
                 await _notify_attendees(event, "24 horas")
                 event.reminder_24h_sent = True
                 db.add(event)
 
-            # Recordatorio 1 hora (Enviamos si faltan entre 0.5 y 1.5 horas)
             elif 0.5 <= hours_until_start <= 1.5 and not event.reminder_1h_sent:
                 await _notify_attendees(event, "1 hora")
                 event.reminder_1h_sent = True
@@ -74,7 +70,11 @@ async def _notify_attendees(event: Event, time_label: str):
     if not confirmed_regs:
         return
 
-    fecha = event.start_time.strftime("%d/%m/%Y a las %H:%M hs")
+    # CAMBIO CLAVE: Localizar el objeto datetime UTC nativo de la BD a la zona horaria de Argentina (UTC-3)
+    arg_tz = timezone(timedelta(hours=-3))
+    start_time_local = event.start_time.astimezone(arg_tz)
+    fecha = start_time_local.strftime("%d/%m/%Y a las %H:%M hs")
+    
     subject = f"Recordatorio: Faltan {time_label} para {event.title}"
     
     for reg in confirmed_regs:

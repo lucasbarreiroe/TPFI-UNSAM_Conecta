@@ -65,7 +65,7 @@
         <hr>
         <p class="mb-1"><strong>📍 Lugar:</strong> <span id="modalLocation"></span></p>
         <p class="mb-1"><strong>📅 Inicio:</strong> <span id="modalStart"></span></p>
-        <p class="mb-1"><strong>👥 Cupos:</strong> <span id="modalCapacity"></span></p>
+        <p class="mb-1"><strong>⏳ Fin:</strong> <span id="modalEnd"></span></p> <p class="mb-1"><strong>👥 Cupos:</strong> <span id="modalCapacity"></span></p>
       </div>
       <div class="modal-footer" id="modalFooter">
         </div>
@@ -186,7 +186,6 @@ function renderStudentView() {
     document.getElementById("page-title").innerText = "Calendario Académico";
     document.getElementById("student-view").classList.remove("d-none");
 
-    // 1. RENDERIZAR RECOMENDACIONES SI EXISTEN
     const recSection = document.getElementById("recommendations-section");
     const recContainer = document.getElementById("recommendations-container");
     
@@ -212,7 +211,6 @@ function renderStudentView() {
         });
     }
 
-    // 2. RENDERIZAR CALENDARIO NORMAL
     const calendarEl = document.getElementById('calendar');
     
     const calendarEvents = allEvents.map(e => ({
@@ -235,18 +233,14 @@ function renderStudentView() {
         buttonText: { today: 'Hoy', month: 'Mes', week: 'Semana', list: 'Agenda' },
         events: calendarEvents,
 
-        // ==========================================
-        // NUEVAS CONFIGURACIONES DE UI/UX PARA EVENTOS
-        // ==========================================
-        nextDayThreshold: '06:00:00', // Evita que un evento de trasnoche ocupe todo el casillero del día siguiente
-        eventDisplay: 'list-item',    // Cambia el bloque sólido por un punto limpio y texto
-        displayEventEnd: false,       // Oculta la hora de finalización en la grilla para que no se corte
-        eventTimeFormat: {            // Formato de hora limpio a 24hs (Ej: 14:30)
+        nextDayThreshold: '06:00:00', 
+        eventDisplay: 'list-item',    
+        displayEventEnd: false,       
+        eventTimeFormat: {            
             hour: '2-digit',
             minute: '2-digit',
             hour12: false
         },
-        // ==========================================
 
         eventClick: function(info) {
             abrirModalEvento(info.event.extendedProps);
@@ -295,7 +289,11 @@ function abrirModalEvento(event) {
     document.getElementById("modalCategory").innerText = event.category;
     document.getElementById("modalDescription").innerText = event.description;
     document.getElementById("modalLocation").innerText = event.location;
+    
+    // Mapeo de tiempos en formato local para consistencia visual
     document.getElementById("modalStart").innerText = new Date(event.start_time).toLocaleString("es-AR");
+    document.getElementById("modalEnd").innerText = new Date(event.end_time).toLocaleString("es-AR"); // CAMBIO: Inyección del tiempo de finalización
+    
     document.getElementById("modalCapacity").innerText = `${event.current_enrollment} / ${event.capacity}`;
 
     const footer = document.getElementById("modalFooter");
