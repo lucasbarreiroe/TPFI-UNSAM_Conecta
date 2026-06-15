@@ -50,7 +50,8 @@ class Event(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     title: Mapped[str] = mapped_column(String, index=True, nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)
-    organizer_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    # CAMBIO: ondelete="CASCADE" para que si se borra el organizador, se borren sus eventos
+    organizer_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     category: Mapped[str] = mapped_column(String, index=True, nullable=False)
     location: Mapped[str] = mapped_column(String, nullable=False)
     start_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True, nullable=False)
@@ -60,20 +61,20 @@ class Event(Base):
     status: Mapped[EventStatusEnum] = mapped_column(Enum(EventStatusEnum), default=EventStatusEnum.PUBLISHED)
     tags: Mapped[list[str]] = mapped_column(ARRAY(String), default=[])
     
-    # NUEVO: Controles para evitar mandar el mismo recordatorio dos veces
     reminder_24h_sent: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     reminder_1h_sent: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
-    # Relationships
+    # CAMBIO: cascade="all, delete-orphan" para limpiar inscripciones desde el ORM de Python
     organizer = relationship("User", back_populates="events_organized")
-    registrations = relationship("Registration", back_populates="event")
+    registrations = relationship("Registration", back_populates="event", cascade="all, delete-orphan")
 
 class Registration(Base):
     __tablename__ = "registrations"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
-    event_id: Mapped[int] = mapped_column(ForeignKey("events.id"), nullable=False)
+    # CAMBIO: ondelete="CASCADE" forzando la base de datos a limpiar registros vinculados
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    event_id: Mapped[int] = mapped_column(ForeignKey("events.id", ondelete="CASCADE"), nullable=False)
     status: Mapped[RegistrationStatusEnum] = mapped_column(
         Enum(RegistrationStatusEnum), default=RegistrationStatusEnum.CONFIRMED
     )
@@ -84,13 +85,15 @@ class Registration(Base):
     # Relationships
     user = relationship("User", back_populates="registrations")
     event = relationship("Event", back_populates="registrations")
-    review = relationship("Review", back_populates="registration", uselist=False)
+    # CAMBIO: Limpieza en cascada de reseñas si la inscripción desaparece
+    review = relationship("Review", back_populates="registration", uselist=False, cascade="all, delete-orphan")
 
 class Review(Base):
     __tablename__ = "reviews"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    registration_id: Mapped[int] = mapped_column(ForeignKey("registrations.id"), unique=True, nullable=False)
+    # CAMBIO: ondelete="CASCADE" forzando la limpieza a nivel SQL
+    registration_id: Mapped[int] = mapped_column(ForeignKey("registrations.id", ondelete="CASCADE"), unique=True, nullable=False)
     rating: Mapped[int] = mapped_column(Integer, nullable=False)
     comment: Mapped[str] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
