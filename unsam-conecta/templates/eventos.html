@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js'></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2 class="text-primary" id="page-title">Cargando eventos...</h2>
@@ -65,10 +66,40 @@
         <hr>
         <p class="mb-1"><strong>📍 Lugar:</strong> <span id="modalLocation"></span></p>
         <p class="mb-1"><strong>📅 Inicio:</strong> <span id="modalStart"></span></p>
-        <p class="mb-1"><strong>⏳ Fin:</strong> <span id="modalEnd"></span></p> <p class="mb-1"><strong>👥 Cupos:</strong> <span id="modalCapacity"></span></p>
+        <p class="mb-1"><strong>⏳ Fin:</strong> <span id="modalEnd"></span></p>
+        <p class="mb-1"><strong>👥 Cupos:</strong> <span id="modalCapacity"></span></p>
       </div>
       <div class="modal-footer" id="modalFooter">
         </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="attendeesModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header bg-success text-white">
+        <h5 class="modal-title">Control de Asistencia</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="pdf-content" class="p-2">
+            <div id="pdf-header" class="d-none mb-4">
+                <h3 style="color: #0d6efd; margin-bottom: 5px;">UNSAM Conecta</h3>
+                <p style="color: #666; font-size: 13px; margin-bottom: 20px;">Plataforma de Gestión de Eventos Universitarios</p>
+                <hr>
+            </div>
+            <h5 class="text-primary mb-1" id="attendeesEventTitle"></h5>
+            <p class="text-muted small mb-3" id="attendeesMeta"></p>
+            
+            <ol class="list-group list-group-numbered list-group-flush" id="attendees-list">
+                </ol>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+        <button type="button" class="btn btn-primary" id="btn-export-pdf" onclick="exportarListaAPDF()">📄 Exportar a PDF</button>
+      </div>
     </div>
   </div>
 </div>
@@ -78,6 +109,7 @@ let currentUser = null;
 let misInscripciones = new Set();
 let allEvents = [];
 let misRecomendaciones = []; 
+let currentSelectedEventTitle = "";
 
 document.addEventListener("DOMContentLoaded", async () => {
     const token = localStorage.getItem("token");
@@ -162,6 +194,7 @@ function renderOrganizerView() {
 
     misEventos.forEach(event => {
         const fecha = new Date(event.start_time).toLocaleDateString("es-AR", { dateStyle: "medium" });
+        // NUEVO: Agregamos el botón "Ver Inscriptos" a la botonera de acciones
         tbody.innerHTML += `
             <tr>
                 <td class="fw-bold text-primary">${event.title}</td>
@@ -175,8 +208,8 @@ function renderOrganizerView() {
                     </div>
                 </td>
                 <td>
+                    <button class="btn btn-sm btn-outline-primary" onclick="verInscriptos(${event.id}, '${event.title.replace(/'/g, "\\'")}')">Ver Inscriptos</button>
                     <button class="btn btn-sm btn-outline-danger" onclick="eliminarEvento(${event.id})">Eliminar</button>
-                    <button class="btn btn-sm btn-outline-secondary disabled" title="Próximamente">Editar</button>
                 </td>
             </tr>`;
     });
@@ -290,9 +323,8 @@ function abrirModalEvento(event) {
     document.getElementById("modalDescription").innerText = event.description;
     document.getElementById("modalLocation").innerText = event.location;
     
-    // Mapeo de tiempos en formato local para consistencia visual
     document.getElementById("modalStart").innerText = new Date(event.start_time).toLocaleString("es-AR");
-    document.getElementById("modalEnd").innerText = new Date(event.end_time).toLocaleString("es-AR"); // CAMBIO: Inyección del tiempo de finalización
+    document.getElementById("modalEnd").innerText = new Date(event.end_time).toLocaleString("es-AR");
     
     document.getElementById("modalCapacity").innerText = `${event.current_enrollment} / ${event.capacity}`;
 
@@ -328,7 +360,82 @@ async function procesarInscripcion(eventId, action) {
 }
 
 // -------------------------------------------------------------
-// LÓGICA DE ORGANIZADOR
+// NUEVA LÓGICA DE VISUALIZACIÓN E IMPRESIÓN DE INSCRIPTOS
+// -------------------------------------------------------------
+
+async function verInscriptos(eventId, eventTitle) {
+    currentSelectedEventTitle = eventTitle;
+    document.getElementById("attendeesEventTitle").innerText = eventTitle;
+    
+    const listContainer = document.getElementById("attendees-list");
+    const metaContainer = document.getElementById("attendeesMeta");
+    const btnPdf = document.getElementById("btn-export-pdf");
+    
+    listContainer.innerHTML = '<div class="text-center my-3"><div class="spinner-border spinner-border-sm text-success"></div> Buscando inscriptos...</div>';
+    metaContainer.innerText = "";
+    
+    const token = localStorage.getItem("token");
+    try {
+        const response = await fetch(`/api/v1/events/${eventId}/attendees`, {
+            headers: { "Authorization": `Bearer ${token}` }
+        });
+        
+        if (response.ok) {
+            const attendees = await response.json();
+            listContainer.innerHTML = "";
+            
+            if (attendees.length === 0) {
+                listContainer.innerHTML = '<p class="text-muted text-center py-3 my-0">No hay alumnos anotados en este evento todavía.</p>';
+                btnPdf.classList.add("disabled");
+                
+                const modal = new bootstrap.Modal(document.getElementById('attendeesModal'));
+                modal.show();
+                return;
+            }
+            
+            btnPdf.classList.remove("disabled");
+            metaContainer.innerText = `Total de alumnos confirmados: ${attendees.length} | Emitido el ${new Date().toLocaleDateString('es-AR')}`;
+            
+            attendees.forEach(student => {
+                listContainer.innerHTML += `
+                    <li class="list-group-item py-2 fw-semibold text-secondary">
+                        ${student.full_name}
+                    </li>`;
+            });
+            
+            const modal = new bootstrap.Modal(document.getElementById('attendeesModal'));
+            modal.show();
+        } else {
+            alert("Error al verificar los permisos del organizador.");
+        }
+    } catch (error) {
+        console.error(error);
+    }
+}
+
+function exportarListaAPDF() {
+    const element = document.getElementById('pdf-content');
+    const pdfHeader = document.getElementById('pdf-header');
+    
+    // Mostramos el encabezado institucional únicamente dentro del archivo PDF final
+    pdfHeader.classList.remove('d-none');
+
+    const opciones = {
+        margin:       15,
+        filename:     `Asistencia_${currentSelectedEventTitle.replace(/\s+/g, '_')}.pdf`,
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2, logging: false },
+        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+
+    html2pdf().set(opciones).from(element).save().then(() => {
+        // Volvemos a ocultar el encabezado de la pantalla para preservar la UI del modal
+        pdfHeader.classList.add('d-none');
+    });
+}
+
+// -------------------------------------------------------------
+// LÓGICA DE ORGANIZADOR (ELIMINAR)
 // -------------------------------------------------------------
 
 async function eliminarEvento(eventId) {
